@@ -9,12 +9,27 @@ app.use(cors());
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
+// --- CENTRAL CONFIGURATION (THE RULEBOOK) ---
 const CONFIG = {
-    KICK_COOLDOWN_MS: 5 * 60 * 1000 
+    KICK_COOLDOWN_MS: 5 * 60 * 1000, 
+    // Scoring & Penalties
+    BASE_SCORE: 5000,
+    CLICK_PENALTY: 200,   // Points lost per click
+    TIME_PENALTY: 5,      // Points lost per second
+    MIN_SCORE: 100,       // Minimum points for finishing
+    UNDO_PENALTY: 3       // Clicks added when using "Go Back"
 };
 
 const rooms = {};
 const kickedLog = {}; 
+
+// --- SCORING ENGINE ---
+const calculateWikiRaceScore = (clicks, timeInSeconds) => {
+    const totalClickPenalty = clicks * CONFIG.CLICK_PENALTY;
+    const totalTimePenalty = timeInSeconds * CONFIG.TIME_PENALTY;
+    let finalScore = CONFIG.BASE_SCORE - totalClickPenalty - totalTimePenalty;
+    return Math.max(CONFIG.MIN_SCORE, Math.floor(finalScore));
+};
 
 const checkRoundEnd = (roomCode) => {
     const room = rooms[roomCode];
@@ -33,6 +48,9 @@ const checkRoundEnd = (roomCode) => {
 
 io.on('connection', (socket) => {
     
+    // INSTANTLY send the rules to the frontend
+    socket.emit('syncConfig', CONFIG);
+
     socket.on('joinRoom', (roomCode, playerName, callback) => {
         const normalizedRoom = roomCode.toUpperCase();
         const normalizedName = playerName.toLowerCase();
@@ -59,7 +77,7 @@ io.on('connection', (socket) => {
         }
 
         if (!rooms[normalizedRoom]) {
-            rooms[normalizedRoom] = { host: socket.id, players: [], startNode: 'Discord_(software)', targetNode: 'Germany', inProgress: false };
+            rooms[normalizedRoom] = { host: socket.id, players: [], startNode: 'Discord', targetNode: 'Instagram', inProgress: false };
         }
 
         const nameExists = rooms[normalizedRoom].players.some(p => p.name.toLowerCase() === normalizedName);
@@ -138,7 +156,8 @@ io.on('connection', (socket) => {
             const player = room.players.find(p => p.name === playerName);
             if (player) {
                 player.status = 'FINISHED';
-                const points = Math.max(10, 1000 - (timeTaken * 2) - (clickCount * 10));
+                
+                const points = calculateWikiRaceScore(clickCount, timeTaken);
                 
                 player.score += points;
                 player.lastTime = timeTaken;
