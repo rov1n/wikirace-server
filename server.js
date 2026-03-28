@@ -9,21 +9,18 @@ app.use(cors());
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
-// --- CENTRAL CONFIGURATION (THE RULEBOOK) ---
 const CONFIG = {
     KICK_COOLDOWN_MS: 5 * 60 * 1000, 
-    // Scoring & Penalties
     BASE_SCORE: 5000,
-    CLICK_PENALTY: 200,   // Points lost per click
-    TIME_PENALTY: 5,      // Points lost per second
-    MIN_SCORE: 100,       // Minimum points for finishing
-    UNDO_PENALTY: 3       // Clicks added when using "Go Back"
+    CLICK_PENALTY: 200,   
+    TIME_PENALTY: 5,      
+    MIN_SCORE: 100,       
+    UNDO_PENALTY: 3       
 };
 
 const rooms = {};
 const kickedLog = {}; 
 
-// --- SCORING ENGINE ---
 const calculateWikiRaceScore = (clicks, timeInSeconds) => {
     const totalClickPenalty = clicks * CONFIG.CLICK_PENALTY;
     const totalTimePenalty = timeInSeconds * CONFIG.TIME_PENALTY;
@@ -48,7 +45,6 @@ const checkRoundEnd = (roomCode) => {
 
 io.on('connection', (socket) => {
     
-    // INSTANTLY send the rules to the frontend
     socket.emit('syncConfig', CONFIG);
 
     socket.on('joinRoom', (roomCode, playerName, callback) => {
