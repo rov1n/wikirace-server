@@ -180,6 +180,7 @@ io.on('connection', (socket) => {
                 
                 if (room.players.length === 0) {
                     delete rooms[roomCode];
+                    delete kickedLog[roomCode];
                 } else {
                     io.to(roomCode).emit('roomUpdate', room);
                     checkRoundEnd(roomCode); 
