@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const https = require('https');
 
 const app = express();
 app.use(cors());
@@ -42,6 +43,26 @@ const checkRoundEnd = (roomCode) => {
         io.to(roomCode).emit('roomUpdate', room);
     }
 };
+// 1. Health check endpoint
+app.get('/health', (req, res) => {
+    res.status(200).send('Server is awake!');
+});
+
+// 2. Production Self-Ping (14 minutes)
+const SELF_URL = process.env.RENDER_EXTERNAL_URL; 
+
+if (SELF_URL) {
+    console.log(`Ping system active. Targeting: ${SELF_URL}`);
+    
+    setInterval(() => {
+        // We use HTTPS here because Render URLs are strictly secure
+        https.get(`${SELF_URL}/health`, (resp) => {
+            console.log(`Self-ping status: ${resp.statusCode}`);
+        }).on('error', (err) => {
+            console.error('Self-ping failed:', err.message);
+        });
+    }, 840000); // 14 minutes (840,000 milliseconds)
+}
 
 io.on('connection', (socket) => {
     
