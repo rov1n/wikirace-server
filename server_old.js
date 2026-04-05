@@ -43,7 +43,6 @@ const checkRoundEnd = (roomCode) => {
         io.to(roomCode).emit('roomUpdate', room);
     }
 };
-
 // 1. Health check endpoint
 app.get('/health', (req, res) => {
     res.status(200).send('Server is awake!');
@@ -69,70 +68,7 @@ io.on('connection', (socket) => {
     
     socket.emit('syncConfig', CONFIG);
 
-    // socket.on('joinRoom', (requestedRoomCode, playerName, callback) => {
-    //     let roomCode = requestedRoomCode;
-
-    //     // --- NEW: Auto-generate unique code if left blank ---
-    //     if (!roomCode || roomCode.trim() === '') {
-    //         do {
-    //             roomCode = Math.random().toString(36).substring(2, 6).toUpperCase();
-    //         } while (rooms[roomCode]); // Keep generating if this code already exists!
-    //     }
-
-    //     const normalizedRoom = roomCode.toUpperCase();
-    //     const normalizedName = playerName.toLowerCase();
-
-    //     if (rooms[normalizedRoom] && rooms[normalizedRoom].inProgress) {
-    //         if (typeof callback === 'function') {
-    //             return callback({ success: false, message: 'Match is currently in progress. You cannot join right now.' });
-    //         }
-    //     }
-
-    //     if (kickedLog[normalizedRoom] && kickedLog[normalizedRoom][normalizedName]) {
-    //         const kickTime = kickedLog[normalizedRoom][normalizedName];
-    //         const timeElapsed = Date.now() - kickTime;
-            
-    //         if (timeElapsed < CONFIG.KICK_COOLDOWN_MS) {
-    //             const remainingSecs = Math.ceil((CONFIG.KICK_COOLDOWN_MS - timeElapsed) / 1000);
-    //             const remainingMins = Math.ceil(remainingSecs / 60);
-    //             if (typeof callback === 'function') {
-    //                 return callback({ success: false, message: `You were kicked. Cooldown remaining: ${remainingMins} minute(s).` });
-    //             }
-    //         } else {
-    //             delete kickedLog[normalizedRoom][normalizedName];
-    //         }
-    //     }
-
-    //     if (!rooms[normalizedRoom]) {
-    //         rooms[normalizedRoom] = { host: socket.id, players: [], startNode: 'Discord', targetNode: 'Instagram', inProgress: false };
-    //     }
-
-    //     const nameExists = rooms[normalizedRoom].players.some(p => p.name.toLowerCase() === normalizedName);
-    //     if (nameExists) {
-    //         if (typeof callback === 'function') return callback({ success: false, message: 'Username already taken in this room.' });
-    //         return; 
-    //     }
-
-    //     socket.join(normalizedRoom);
-    //     rooms[normalizedRoom].players.push({ id: socket.id, name: playerName, score: 0, status: 'LOBBY' });
-    //     io.to(normalizedRoom).emit('roomUpdate', rooms[normalizedRoom]);
-        
-    //     // --- NEW: Send the confirmed/generated room code back to the client ---
-    //     if (typeof callback === 'function') {
-    //         callback({ success: true, isHost: rooms[normalizedRoom].host === socket.id, roomCode: normalizedRoom });
-    //     }
-    // });
-
-    socket.on('joinRoom', (requestedRoomCode, playerName, callback) => {
-        let roomCode = requestedRoomCode;
-
-        // --- NEW: Auto-generate unique code if left blank ---
-        if (!roomCode || roomCode.trim() === '') {
-            do {
-                roomCode = Math.random().toString(36).substring(2, 6).toUpperCase();
-            } while (rooms[roomCode]); // Keep generating if this code already exists!
-        }
-
+    socket.on('joinRoom', (roomCode, playerName, callback) => {
         const normalizedRoom = roomCode.toUpperCase();
         const normalizedName = playerName.toLowerCase();
 
@@ -171,10 +107,7 @@ io.on('connection', (socket) => {
         rooms[normalizedRoom].players.push({ id: socket.id, name: playerName, score: 0, status: 'LOBBY' });
         io.to(normalizedRoom).emit('roomUpdate', rooms[normalizedRoom]);
         
-        // --- FIXED: Send the confirmed/generated room code back to the client ---
-        if (typeof callback === 'function') {
-            callback({ success: true, isHost: rooms[normalizedRoom].host === socket.id, roomCode: normalizedRoom });
-        }
+        if (typeof callback === 'function') callback({ success: true, isHost: rooms[normalizedRoom].host === socket.id });
     });
 
     socket.on('updateRoute', (roomCode, startNode, targetNode) => {
@@ -234,8 +167,7 @@ io.on('connection', (socket) => {
         }
     });
 
-    // --- Added pathHistory back in so your frontend Copy Route feature works! ---
-    socket.on('playerWon', (roomCode, playerName, clickCount, timeTaken, pathHistory) => {
+    socket.on('playerWon', (roomCode, playerName, clickCount, timeTaken) => {
         const room = rooms[roomCode];
         if (room) {
             const player = room.players.find(p => p.name === playerName);
@@ -248,7 +180,6 @@ io.on('connection', (socket) => {
                 player.lastTime = timeTaken;
                 player.lastClicks = clickCount;
                 player.lastPoints = points;
-                player.lastPath = pathHistory;
                 
                 io.to(roomCode).emit('receiveChat', { sender: 'System 🤖', message: `🏁 ${playerName} finished! (${clickCount} clicks, ${timeTaken}s)` });
             }
